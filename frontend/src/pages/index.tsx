@@ -27,6 +27,7 @@ export default function Dashboard() {
           >
             Dashboard
           </a>
+
           <a
             href="/vehicles"
             style={{
@@ -38,15 +39,21 @@ export default function Dashboard() {
           >
             Veicoli
           </a>
-          <span
+
+          {/* Clienti – link attivo */}
+          <a
+            href="/customers"
             style={{
               display: 'block',
               padding: '8px 0',
-              color: '#6B7280',
+              color: '#E5E7EB',
+              textDecoration: 'none',
             }}
           >
-            Clienti (presto)
-          </span>
+            Clienti
+          </a>
+
+          {/* Contratti (ancora non attivo) */}
           <span
             style={{
               display: 'block',
