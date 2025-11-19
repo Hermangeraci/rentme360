@@ -40,7 +40,6 @@ export default function Dashboard() {
             Veicoli
           </a>
 
-          {/* Clienti – link attivo */}
           <a
             href="/customers"
             style={{
@@ -53,16 +52,17 @@ export default function Dashboard() {
             Clienti
           </a>
 
-          {/* Contratti (ancora non attivo) */}
-          <span
+          <a
+            href="/contracts"
             style={{
               display: 'block',
               padding: '8px 0',
-              color: '#6B7280',
+              color: '#E5E7EB',
+              textDecoration: 'none',
             }}
           >
-            Contratti (presto)
-          </span>
+            Contratti
+          </a>
         </nav>
       </aside>
 
