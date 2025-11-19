@@ -1,0 +1,9 @@
+{
+  "name": "rentme360-backend",
+  "version": "1.0.0",
+  "description": "Backend RentMe360 (placeholder)",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "node dist/main.js"
+  }
+}

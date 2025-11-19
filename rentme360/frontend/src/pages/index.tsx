@@ -1,0 +1,1 @@
+export default function Home(){return <div>RentMe360 Frontend Placeholder</div>}
