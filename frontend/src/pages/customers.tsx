@@ -6,13 +6,16 @@ type Customer = {
   surname: string;
   phone?: string;
   email?: string;
+  document?: string;
+  notes?: string;
 };
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
 
   useEffect(() => {
-    fetch('/api/customers')
+    // TODO: sostituire con l'URL reale del backend quando sarà online
+    fetch('/customers')
       .then((res) => res.json())
       .then((data) => setCustomers(data))
       .catch(console.error);
@@ -27,7 +30,9 @@ export default function CustomersPage() {
         <ul>
           {customers.map((c) => (
             <li key={c.id}>
-              {c.name} {c.surname}
+              <strong>
+                {c.name} {c.surname}
+              </strong>
               {c.phone ? ` — 📞 ${c.phone}` : ''}
               {c.email ? ` — ✉️ ${c.email}` : ''}
             </li>
