@@ -1,1 +1,37 @@
 datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+model Vehicle {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Dati base del mezzo
+  name        String   // es. "Piaggio Liberty 125"
+  plate       String   @unique // targa
+  category    String   // es. "scooter", "quad", "auto"
+  brand       String?  // marca (es. "Piaggio")
+  model       String?  // modello (es. "Liberty 125")
+  year        Int?     // anno immatricolazione
+
+  // Stato del mezzo
+  status      VehicleStatus @default(AVAILABLE)
+  mileage     Int?          // km
+  notes       String?       // note interne
+}
+
+enum VehicleStatus {
+  AVAILABLE   // disponibile al noleggio
+  RENTED      // attualmente noleggiato
+  MAINTENANCE // in manutenzione
+  DISMISSED   // dismesso / venduto
+}
+model Customer {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  surname   String
+  phone     String?
+  email     String?
+  document  String?   // numero documento
+  notes     String?   // note interne
+}
