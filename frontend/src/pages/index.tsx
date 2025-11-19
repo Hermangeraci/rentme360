@@ -1,6 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 export default function Dashboard() {
+  const router = useRouter();
+
+  // Controllo "login"
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('rmn_token');
+    if (!token) {
+      router.replace('/login');
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('rmn_token');
+      router.push('/login');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       {/* Sidebar */}
@@ -14,7 +33,7 @@ export default function Dashboard() {
       >
         <h1 style={{ fontSize: 22, marginBottom: 24 }}>RentMeNow</h1>
 
-        <nav>
+        <nav style={{ marginBottom: 24 }}>
           <a
             href="/"
             style={{
@@ -27,7 +46,6 @@ export default function Dashboard() {
           >
             Dashboard
           </a>
-
           <a
             href="/vehicles"
             style={{
@@ -39,7 +57,6 @@ export default function Dashboard() {
           >
             Veicoli
           </a>
-
           <a
             href="/customers"
             style={{
@@ -51,7 +68,6 @@ export default function Dashboard() {
           >
             Clienti
           </a>
-
           <a
             href="/contracts"
             style={{
@@ -64,6 +80,22 @@ export default function Dashboard() {
             Contratti
           </a>
         </nav>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            marginTop: 'auto',
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: '1px solid #374151',
+            background: 'transparent',
+            color: '#E5E7EB',
+            cursor: 'pointer',
+            fontSize: 14,
+          }}
+        >
+          Logout
+        </button>
       </aside>
 
       {/* Contenuto principale */}
