@@ -1,223 +1,276 @@
-// scripts/assistant-sync.mjs
-//
-// Script per collegare GitHub ↔ OpenAI Assistant (RentMe360)
-// USO (da terminale, nella root del repo):
-//   OPENAI_API_KEY=... GITHUB_TOKEN=... ASSISTANT_ID=... node scripts/assistant-sync.mjs path/del/file.jsx
-//
-// Non inserire MAI le chiavi nel codice, usa solo variabili d'ambiente.
+#!/usr/bin/env node
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const ASSISTANT_ID = process.env.ASSISTANT_ID || "asst_HjqOoOtcDLlKIPQdh2Z7OSvy";
-const GITHUB_REPO = process.env.GITHUB_REPO || "Hermangeraci/rentme360"; // owner/repo
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
+/**
+ * Script di sincronizzazione tra Assistant OpenAI e GitHub.
+ *
+ * Uso:
+ *   node scripts/assistant-sync.mjs "frontend/src/pages/planning.tsx"
+ *
+ * Funzionamento:
+ *   1. Legge (se esiste) il file da GitHub.
+ *   2. Chiede all'assistente OpenAI di generare il NUOVO contenuto completo del file,
+ *      passando path e contenuto attuale (se esiste).
+ *   3. Crea o aggiorna il file su GitHub con un commit automatico.
+ */
 
-if (!OPENAI_API_KEY || !GITHUB_TOKEN) {
-  console.error("❌ Manca OPENAI_API_KEY o GITHUB_TOKEN nelle variabili d'ambiente.");
+const [, , filePathArg] = process.argv;
+
+if (!filePathArg) {
+  console.error("Errore: specificare il percorso del file, es:");
+  console.error('  node scripts/assistant-sync.mjs "frontend/src/pages/planning.tsx"');
   process.exit(1);
 }
 
-const FILE_PATH = process.argv[2];
+const filePath = filePathArg.trim();
 
-if (!FILE_PATH) {
-  console.error("❌ Specifica il path del file da sincronizzare.\nEsempio: node scripts/assistant-sync.mjs src/pages/Home.tsx");
+const {
+  OPENAI_API_KEY,
+  ASSISTANT_ID,
+  GITHUB_TOKEN,
+  GITHUB_REPO,
+  GITHUB_BRANCH,
+} = process.env;
+
+if (!OPENAI_API_KEY || !ASSISTANT_ID || !GITHUB_TOKEN || !GITHUB_REPO || !GITHUB_BRANCH) {
+  console.error("Errore: mancano una o più variabili d'ambiente richieste.");
+  console.error("Servono: OPENAI_API_KEY, ASSISTANT_ID, GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH");
   process.exit(1);
 }
 
-// Piccola utility di pausa
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const GITHUB_API_BASE = "https://api.github.com";
+const OPENAI_API_BASE = "https://api.openai.com/v1";
 
-// Wrapper fetch con gestione base errori
-async function safeFetch(url, options) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status} ${res.statusText} per ${url}\n${text}`);
-  }
-  return res.json();
-}
-
-// ===== FUNZIONI GITHUB =====
-
-async function githubGetFile(path) {
-  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeURIComponent(
+/**
+ * Legge il contenuto del file da GitHub (se esiste).
+ * Ritorna { sha, content } se esiste, oppure { sha: null, content: null } se 404.
+ */
+async function getExistingFileContent(path) {
+  const url = `${GITHUB_API_BASE}/repos/${GITHUB_REPO}/contents/${encodeURIComponent(
     path
-  )}?ref=${GITHUB_BRANCH}`;
+  )}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
 
-  const data = await safeFetch(url, {
-    method: "GET",
+  console.log(`> Lettura file da GitHub: ${path}`);
+
+  const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
-      "User-Agent": "rentme360-assistant-script",
+      "User-Agent": "assistant-sync-script",
       Accept: "application/vnd.github+json",
     },
   });
 
-  const content = Buffer.from(data.content, "base64").toString("utf8");
-  return { content, sha: data.sha };
+  if (res.status === 404) {
+    console.log("> Il file non esiste ancora su GitHub: verrà creato da zero.");
+    return { sha: null, content: null };
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(
+      `Errore nello script: HTTP ${res.status} durante la lettura del file da GitHub.\n${text}`
+    );
+    process.exit(1);
+  }
+
+  const json = await res.json();
+
+  let content = null;
+  if (json.content && json.encoding === "base64") {
+    content = Buffer.from(json.content, "base64").toString("utf8");
+  }
+
+  return { sha: json.sha, content };
 }
 
-async function githubUpdateFile(path, newContent, previousSha) {
-  const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/${encodeURIComponent(
-    path
-  )}`;
+/**
+ * Chiede all'assistente OpenAI di generare il NUOVO contenuto completo del file.
+ */
+async function generateNewFileContent(path, currentContent) {
+  console.log("> Richiesta all'assistente OpenAI per generare il nuovo contenuto del file...");
 
-  const message = `chore: aggiornamento ${path} via assistant`;
+  const userPrompt = [
+    `Sei l'assistente tecnico del progetto RentMe360.`,
+    `Devi generare o aggiornare il file: ${path}.`,
+    ``,
+    `Ti fornisco il contenuto attuale del file (può essere vuoto se il file non esiste ancora).`,
+    `Devi restituire ESCLUSIVAMENTE il NUOVO contenuto COMPLETO del file, senza spiegazioni,`,
+    `senza testo aggiuntivo, senza markdown e senza backtick.`,
+    ``,
+    `--- CONTENUTO ATTUALE DEL FILE ---`,
+    currentContent ? currentContent : "[FILE NUOVO - NESSUN CONTENUTO]",
+    `--- FINE CONTENUTO ATTUALE ---`,
+  ].join("\n");
+
+  // 1) Crea un thread con il messaggio dell'utente
+  const threadRes = await fetch(`${OPENAI_API_BASE}/threads`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+      "OpenAI-Beta": "assistants=v2",
+    },
+    body: JSON.stringify({
+      messages: [
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+    }),
+  });
+
+  if (!threadRes.ok) {
+    const text = await threadRes.text();
+    console.error(`Errore nella creazione del thread OpenAI:\n${text}`);
+    process.exit(1);
+  }
+
+  const thread = await threadRes.json();
+
+  // 2) Avvia un run con l'assistente specificato
+  const runRes = await fetch(`${OPENAI_API_BASE}/threads/${thread.id}/runs`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+      "OpenAI-Beta": "assistants=v2",
+    },
+    body: JSON.stringify({
+      assistant_id: ASSISTANT_ID,
+    }),
+  });
+
+  if (!runRes.ok) {
+    const text = await runRes.text();
+    console.error(`Errore nell'avvio del run OpenAI:\n${text}`);
+    process.exit(1);
+  }
+
+  const run = await runRes.json();
+
+  // 3) Polling finché il run non è completato
+  let runStatus = run.status;
+  let safetyCounter = 0;
+
+  while (runStatus === "queued" || runStatus === "in_progress") {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    safetyCounter += 1;
+
+    const checkRes = await fetch(
+      `${OPENAI_API_BASE}/threads/${thread.id}/runs/${run.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "OpenAI-Beta": "assistants=v2",
+        },
+      }
+    );
+
+    if (!checkRes.ok) {
+      const text = await checkRes.text();
+      console.error(`Errore nel controllo dello stato del run OpenAI:\n${text}`);
+      process.exit(1);
+    }
+
+    const check = await checkRes.json();
+    runStatus = check.status;
+
+    if (safetyCounter > 60) {
+      console.error("Errore: il run OpenAI richiede troppo tempo, interrompo.");
+      process.exit(1);
+    }
+  }
+
+  if (runStatus !== "completed") {
+    console.error(`Errore: il run OpenAI non è completato (stato: ${runStatus}).`);
+    process.exit(1);
+  }
+
+  // 4) Recupera i messaggi finali del thread
+  const messagesRes = await fetch(`${OPENAI_API_BASE}/threads/${thread.id}/messages`, {
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "OpenAI-Beta": "assistants=v2",
+    },
+  });
+
+  if (!messagesRes.ok) {
+    const text = await messagesRes.text();
+    console.error(`Errore nel recupero dei messaggi dal thread OpenAI:\n${text}`);
+    process.exit(1);
+  }
+
+  const messages = await messagesRes.json();
+
+  const assistantMessage = messages.data.find((m) => m.role === "assistant");
+  if (!assistantMessage || !assistantMessage.content || assistantMessage.content.length === 0) {
+    console.error("Errore: nessun contenuto restituito dall'assistente.");
+    process.exit(1);
+  }
+
+  const firstContent = assistantMessage.content[0];
+
+  if (!firstContent.text || !firstContent.text.value) {
+    console.error("Errore: il contenuto restituito non è di tipo testo come previsto.");
+    process.exit(1);
+  }
+
+  const newFileContent = firstContent.text.value;
+
+  console.log("> Nuovo contenuto del file ricevuto dall'assistente.");
+
+  return newFileContent;
+}
+
+/**
+ * Crea o aggiorna il file su GitHub.
+ */
+async function upsertFileOnGitHub(path, newContent, existingSha) {
+  console.log("> Salvataggio del file su GitHub...");
+
+  const url = `${GITHUB_API_BASE}/repos/${GITHUB_REPO}/contents/${encodeURIComponent(path)}`;
 
   const body = {
-    message,
+    message: `chore: aggiornamento ${path} via assistant`,
     content: Buffer.from(newContent, "utf8").toString("base64"),
     branch: GITHUB_BRANCH,
-    sha: previousSha,
   };
 
-  const data = await safeFetch(url, {
+  if (existingSha) {
+    body.sha = existingSha;
+  }
+
+  const res = await fetch(url, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
-      "User-Agent": "rentme360-assistant-script",
+      "User-Agent": "assistant-sync-script",
       Accept: "application/vnd.github+json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
   });
 
-  return data;
-}
-
-// ===== FUNZIONI OPENAI ASSISTANT =====
-
-const OPENAI_HEADERS = {
-  Authorization: `Bearer ${OPENAI_API_KEY}`,
-  "Content-Type": "application/json",
-  "OpenAI-Beta": "assistants=v2",
-};
-
-async function createThreadWithMessage(filePath, fileContent) {
-  const url = "https://api.openai.com/v1/threads";
-
-  const body = {
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Stai lavorando sul repository GitHub ${GITHUB_REPO}, branch ${GITHUB_BRANCH}.\n` +
-              `Ti passo il contenuto del file: ${filePath}.\n\n` +
-              `Il tuo compito è restituire SOLO la nuova versione COMPLETA del file, senza spiegazioni, senza commenti esterni, solo codice.\n\n` +
-              `Contenuto attuale del file:\n\n` +
-              "```text\n" +
-              fileContent +
-              "\n```",
-          },
-        ],
-      },
-    ],
-  };
-
-  const data = await safeFetch(url, {
-    method: "POST",
-    headers: OPENAI_HEADERS,
-    body: JSON.stringify(body),
-  });
-
-  return data.id; // thread_id
-}
-
-async function runAssistant(threadId) {
-  const url = `https://api.openai.com/v1/threads/${threadId}/runs`;
-
-  const body = {
-    assistant_id: ASSISTANT_ID,
-  };
-
-  const data = await safeFetch(url, {
-    method: "POST",
-    headers: OPENAI_HEADERS,
-    body: JSON.stringify(body),
-  });
-
-  return data.id; // run_id
-}
-
-async function waitForRun(threadId, runId) {
-  const url = `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`;
-
-  while (true) {
-    const data = await safeFetch(url, {
-      method: "GET",
-      headers: OPENAI_HEADERS,
-    });
-
-    if (data.status === "completed") return;
-    if (["failed", "cancelled", "expired"].includes(data.status)) {
-      throw new Error(`Run fallita con stato: ${data.status}`);
-    }
-
-    await sleep(2000);
-  }
-}
-
-async function getAssistantResponse(threadId) {
-  const url = `https://api.openai.com/v1/threads/${threadId}/messages?limit=10`;
-
-  const data = await safeFetch(url, {
-    method: "GET",
-    headers: OPENAI_HEADERS,
-  });
-
-  const assistantMessage = data.data.find(
-    (m) => m.role === "assistant"
-  );
-
-  if (!assistantMessage) {
-    throw new Error("Nessun messaggio dell'assistente trovato.");
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`Errore nell'aggiornamento/creazione del file su GitHub:\n${text}`);
+    process.exit(1);
   }
 
-  const textParts = assistantMessage.content
-    .filter((part) => part.type === "text")
-    .map((part) => part.text.value);
-
-  if (!textParts.length) {
-    throw new Error("La risposta dell'assistente non contiene testo.");
-  }
-
-  // Ci aspettiamo che la risposta sia SOLO il nuovo contenuto del file
-  return textParts.join("\n").trim();
+  console.log("> File sincronizzato con successo su GitHub.");
 }
 
-// ===== FLUSSO PRINCIPALE =====
-
+/**
+ * Funzione principale.
+ */
 async function main() {
   try {
-    console.log(`▶️  Lettura file da GitHub: ${FILE_PATH}`);
-    const { content: oldContent, sha } = await githubGetFile(FILE_PATH);
-
-    console.log("▶️  Creo thread con il contenuto del file...");
-    const threadId = await createThreadWithMessage(FILE_PATH, oldContent);
-
-    console.log("▶️  Avvio run dell'assistant...");
-    const runId = await runAssistant(threadId);
-
-    console.log("⏳ In attesa che l'assistant completi la run...");
-    await waitForRun(threadId, runId);
-
-    console.log("▶️  Recupero la nuova versione del file dall'assistant...");
-    const newContent = await getAssistantResponse(threadId);
-
-    if (!newContent || newContent.length < 5) {
-      throw new Error("La nuova versione del file sembra vuota o troppo corta, non aggiorno.");
-    }
-
-    console.log("▶️  Aggiorno il file su GitHub...");
-    await githubUpdateFile(FILE_PATH, newContent, sha);
-
-    console.log("✅ File aggiornato con successo su GitHub.");
+    const { sha, content } = await getExistingFileContent(filePath);
+    const newContent = await generateNewFileContent(filePath, content);
+    await upsertFileOnGitHub(filePath, newContent, sha);
+    console.log("✅ Sincronizzazione completata.");
   } catch (err) {
-    console.error("❌ Errore nello script:", err.message);
+    console.error("Errore inatteso nello script assistant-sync:", err);
     process.exit(1);
   }
 }
