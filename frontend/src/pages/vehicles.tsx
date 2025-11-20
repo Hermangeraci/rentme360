@@ -1,3 +1,11 @@
+1. **Nome file:**  
+frontend/src/pages/vehicles.tsx
+
+2. **Codice da sostituire:**  
+Intero file
+
+3. **Nuovo codice completo aggiornato:**  
+```tsx
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/router';
 
@@ -28,62 +36,66 @@ export default function VehiclesPage() {
           backgroundColor: '#111827',
           color: 'white',
           padding: '20px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
         }}
       >
-        <h1 style={{ fontSize: 22, marginBottom: 24 }}>RentMeNow</h1>
+        <div>
+          <h1 style={{ fontSize: 22, marginBottom: 24 }}>RentMeNow</h1>
 
-        <nav style={{ marginBottom: 24 }}>
-          <a
-            href="/"
-            style={{
-              display: 'block',
-              padding: '8px 0',
-              color: '#E5E7EB',
-              textDecoration: 'none',
-            }}
-          >
-            Dashboard
-          </a>
-          <a
-            href="/vehicles"
-            style={{
-              display: 'block',
-              padding: '8px 0',
-              color: '#E5E7EB',
-              textDecoration: 'none',
-              fontWeight: 600,
-            }}
-          >
-            Veicoli
-          </a>
-          <a
-            href="/customers"
-            style={{
-              display: 'block',
-              padding: '8px 0',
-              color: '#E5E7EB',
-              textDecoration: 'none',
-            }}
-          >
-            Clienti
-          </a>
-          <a
-            href="/contracts"
-            style={{
-              display: 'block',
-              padding: '8px 0',
-              color: '#E5E7EB',
-              textDecoration: 'none',
-            }}
-          >
-            Contratti
-          </a>
-        </nav>
+          <nav style={{ marginBottom: 24 }}>
+            <a
+              href="/"
+              style={{
+                display: 'block',
+                padding: '8px 0',
+                color: '#E5E7EB',
+                textDecoration: 'none',
+              }}
+            >
+              Dashboard
+            </a>
+            <a
+              href="/vehicles"
+              style={{
+                display: 'block',
+                padding: '8px 0',
+                color: '#E5E7EB',
+                textDecoration: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Veicoli
+            </a>
+            <a
+              href="/customers"
+              style={{
+                display: 'block',
+                padding: '8px 0',
+                color: '#E5E7EB',
+                textDecoration: 'none',
+              }}
+            >
+              Clienti
+            </a>
+            <a
+              href="/contracts"
+              style={{
+                display: 'block',
+                padding: '8px 0',
+                color: '#E5E7EB',
+                textDecoration: 'none',
+              }}
+            >
+              Contratti
+            </a>
+          </nav>
+        </div>
 
         <button
           onClick={handleLogout}
           style={{
-            marginTop: 'auto',
             padding: '8px 12px',
             borderRadius: 6,
             border: '1px solid #374151',
@@ -152,3 +164,4 @@ export default function VehiclesPage() {
     </div>
   );
 }
+```
