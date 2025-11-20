@@ -1,0 +1,32 @@
+name: Assistant Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_path:
+        description: "Percorso del file da sincronizzare (relativo alla root del repo)"
+        required: true
+        default: "frontend/index.tsx"
+
+jobs:
+  sync-file-with-assistant:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run assistant sync script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSISTANT_ID: ${{ secrets.OPENAI_ASSISTANT_ID }}
+          GITHUB_REPO: "Hermangeraci/rentme360"
+          GITHUB_BRANCH: "main"
+        run: |
+          node scripts/assistant-sync.mjs "${{ github.event.inputs.file_path }}"
