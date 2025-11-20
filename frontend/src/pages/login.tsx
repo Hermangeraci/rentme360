@@ -1,3 +1,11 @@
+1. **Nome file:**  
+frontend/src/pages/login.tsx
+
+2. **Codice da sostituire:**  
+Intero contenuto del file.
+
+3. **Nuovo codice completo aggiornato:**  
+```tsx
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
@@ -11,7 +19,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Se sei già loggato, vai in dashboard
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('rmn_token');
@@ -26,7 +33,6 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    // Login FINTA: controlliamo credenziali hard-coded
     setTimeout(() => {
       if (email === VALID_EMAIL && password === VALID_PASSWORD) {
         localStorage.setItem('rmn_token', 'rentmenow-demo-token');
@@ -166,3 +172,4 @@ export default function LoginPage() {
     </div>
   );
 }
+```
