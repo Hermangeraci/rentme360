@@ -1,69 +1,32 @@
-import React, { useEffect, useState } from 'react';
-
-interface Booking {
-  id: string;
-  itemName: string;
-  renterName: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-}
+import React from "react";
 
 const BookingsPage: React.FC = () => {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/bookings')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Errore nel caricamento delle prenotazioni');
-        }
-        return res.json();
-      })
-      .then(data => {
-        setBookings(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) return <div>Caricamento...</div>;
-  if (error) return <div>Errore: {error}</div>;
-
   return (
-    <div>
-      <h1>Prenotazioni</h1>
-      {bookings.length === 0 ? (
-        <p>Nessuna prenotazione disponibile.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Oggetto</th>
-              <th>Locatario</th>
-              <th>Data inizio</th>
-              <th>Data fine</th>
-              <th>Stato</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.map((booking) => (
-              <tr key={booking.id}>
-                <td>{booking.itemName}</td>
-                <td>{booking.renterName}</td>
-                <td>{new Date(booking.startDate).toLocaleDateString()}</td>
-                <td>{new Date(booking.endDate).toLocaleDateString()}</td>
-                <td>{booking.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <div className="min-h-screen bg-gray-50 px-6 py-6">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Prenotazioni</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Qui potrai gestire tutte le prenotazioni dei mezzi del tuo parco.
+        </p>
+      </header>
+
+      <section className="rounded-2xl border border-gray-300 bg-white p-6 shadow-sm">
+        <p className="text-sm text-gray-600">
+          Questa sezione è ancora in fase di sviluppo.  
+          A breve potrai:
+        </p>
+
+        <ul className="list-disc pl-6 mt-3 text-sm text-gray-700 space-y-1">
+          <li>Creare nuove prenotazioni</li>
+          <li>Modificare le prenotazioni esistenti</li>
+          <li>Visualizzare il calendario delle consegne e dei rientri</li>
+          <li>Sincronizzare i dati con il planning e i clienti</li>
+        </ul>
+
+        <p className="mt-4 text-[11px] text-gray-400">
+          Pagina placeholder — verrà collegata al backend più avanti.
+        </p>
+      </section>
     </div>
   );
 };
