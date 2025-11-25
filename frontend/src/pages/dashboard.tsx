@@ -91,6 +91,9 @@ const DashboardPage: React.FC = () => {
           </button>
           <button
             type="button"
+            onClick={() => {
+              window.location.href = "/planning";
+            }}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Apri planning
@@ -232,14 +235,15 @@ const DashboardPage: React.FC = () => {
             <ul className="list-disc space-y-1 pl-4">
               <li>Integrare in seguito i dati reali dal backend.</li>
               <li>
-                Collegare il pulsante “Apri planning” alla route
+                Il pulsante “Apri planning” apre la route
                 <code className="ml-1 rounded bg-gray-100 px-1 py-0.5">
                   /planning
                 </code>
                 .
               </li>
               <li>
-                Aggiungere un widget meteo o traffico per Cefalù come extra.
+                Aggiungere in futuro un widget meteo o traffico per Cefalù come
+                extra.
               </li>
             </ul>
           </div>
